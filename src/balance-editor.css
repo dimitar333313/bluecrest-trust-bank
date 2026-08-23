@@ -1,0 +1,9 @@
+.balance-editor{position:relative;z-index:2;margin:18px 0 14px;padding:14px;border:1px solid rgba(255,255,255,.2);border-radius:10px;background:rgba(4,27,79,.25)}
+.balance-editor label{display:block;margin-bottom:8px;color:#d7e5ff;font:600 12px 'DM Sans'}
+.balance-editor div{display:flex;gap:8px;align-items:center}
+.balance-editor input{min-width:0;flex:1;border:0;border-radius:6px;padding:9px 10px;color:#173b38;background:#fff;font:600 14px 'DM Sans'}
+.balance-editor button{border:0;border-radius:6px;padding:9px 11px;cursor:pointer;font:600 12px 'DM Sans'}
+.balance-editor button[type='submit']{background:#c5d96f;color:#123b37}
+.balance-editor button[type='button']{background:rgba(255,255,255,.13);color:#fff}
+.balance-footer>div{display:flex;gap:14px;align-items:center}
+@media(max-width:700px){.balance-editor div{flex-wrap:wrap}.balance-editor input{flex-basis:100%}.balance-footer{gap:12px;align-items:flex-start}.balance-footer>div{gap:8px;flex-wrap:wrap}}

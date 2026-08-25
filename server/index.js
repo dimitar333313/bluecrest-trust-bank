@@ -22,8 +22,9 @@ app.use(express.json())
 app.use(cookieParser())
 
 function readData() {
-  if (!fs.existsSync(dataPath)) return { users: [], otps: [], auditLogs: [] }
-  return JSON.parse(fs.readFileSync(dataPath, 'utf8'))
+  if (!fs.existsSync(dataPath)) return { users: [], otps: [], auditLogs: [], chatMessages: [] }
+  const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'))
+  return { ...data, chatMessages: data.chatMessages || [] }
 }
 
 function writeData(data) {
@@ -32,8 +33,14 @@ function writeData(data) {
 
 async function sendMail({ to, subject, text }) {
   if (!mailer) return false
-  await mailer.sendMail({ from: process.env.MAIL_FROM || 'Olivia <bluecresttrustbank@gmail.com>', to, subject, text })
+  await mailer.sendMail({ from: process.env.MAIL_FROM || 'Bluecrest Trust Bank <info@bluecresttrustbank.com>', to, subject, text })
   return true
+}
+
+function requireAdminKey(req, res, next) {
+  const adminKey = process.env.ADMIN_API_KEY
+  if (!adminKey || req.get('x-admin-key') !== adminKey) return res.status(401).json({ error: 'Admin authorization required' })
+  next()
 }
 
 function requireCustomer(req, res, next) {
@@ -71,7 +78,7 @@ app.post('/api/customers/login', async (req, res) => {
   data.auditLogs.unshift({ action: 'OTP requested', userId: user.id, at: new Date().toISOString() })
   writeData(data)
   const delivered = await sendMail({ to: user.email, subject: 'Your Bluecrest Trust Bank verification code', text: `Your one-time verification code is ${code}. It expires in 5 minutes. Never share this code with anyone.` })
-  res.json({ requiresOtp: true, delivery: user.email, delivered, developmentCode: process.env.NODE_ENV === 'production' ? undefined : code })
+  res.json({ requiresOtp: true, userId: user.id, delivery: user.email, delivered, developmentCode: process.env.NODE_ENV === 'production' ? undefined : code })
 })
 
 app.post('/api/customers/verify-otp', async (req, res) => {
@@ -92,5 +99,53 @@ app.get('/api/customers/me', requireCustomer, (req, res) => {
   if (!user || user.status !== 'Active') return res.status(403).json({ error: 'Account unavailable' })
   res.json({ id: user.id, name: user.name, email: user.email, username: user.username, balance: user.balance, status: user.status })
 })
+
+app.post('/api/customers/debit-alert', requireCustomer, async (req, res) => {
+  const amount = Number(req.body.amount)
+  const description = String(req.body.description || 'Demo transfer')
+  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'A valid debit amount is required' })
+  const user = readData().users.find((item) => item.id === req.user.sub)
+  if (!user || user.status !== 'Active') return res.status(403).json({ error: 'Account unavailable' })
+  const delivered = await sendMail({ to: user.email, subject: 'Debit alert - Bluecrest Trust Bank', text: `A debit of $${amount.toFixed(2)} was recorded on your Bluecrest Trust Bank demo account for ${description}. Your available balance was updated in the demo dashboard.` })
+  res.json({ ok: true, delivered })
+})
+
+app.post('/api/customer-chat/messages', requireCustomer, async (req, res) => {
+  const message = String(req.body.message || '').trim()
+  if (!message || message.length > 2000) return res.status(400).json({ error: 'Message must be between 1 and 2000 characters' })
+  const data = readData()
+  const user = data.users.find((item) => item.id === req.user.sub)
+  if (!user || user.status !== 'Active') return res.status(403).json({ error: 'Account unavailable' })
+  const record = { id: crypto.randomUUID(), userId: user.id, sender: 'customer', message, createdAt: new Date().toISOString() }
+  data.chatMessages.push(record)
+  data.auditLogs.unshift({ action: 'Customer support message sent', userId: user.id, at: record.createdAt })
+  writeData(data)
+  if (process.env.SUPPORT_EMAIL) await sendMail({ to: process.env.SUPPORT_EMAIL, subject: `Customer support message from ${user.name}`, text: `${user.name} (${user.email}) wrote:\n\n${message}` })
+  res.status(201).json(record)
+})
+
+app.get('/api/customer-chat/messages', requireCustomer, (req, res) => {
+  const messages = readData().chatMessages.filter((item) => item.userId === req.user.sub)
+  res.json(messages)
+})
+
+app.get('/api/admin/chat-messages', requireAdminKey, (_req, res) => res.json(readData().chatMessages))
+
+app.post('/api/admin/email', requireAdminKey, async (req, res) => {
+  const to = String(req.body.to || '').trim()
+  const subject = String(req.body.subject || '').trim()
+  const text = String(req.body.text || '').trim()
+  if (!to || !subject || !text) return res.status(400).json({ error: 'Recipient, subject, and message are required' })
+  try {
+    const delivered = await sendMail({ to, subject, text })
+    res.json({ ok: true, delivered })
+  } catch {
+    res.status(502).json({ error: 'Email could not be sent' })
+  }
+})
+
+const clientPath = path.join(__dirname, '..', 'dist')
+app.use(express.static(clientPath))
+app.get('/{*splat}', (_req, res) => res.sendFile(path.join(clientPath, 'index.html')))
 
 app.listen(port, () => console.log(`Bluecrest API listening on http://localhost:${port}`))

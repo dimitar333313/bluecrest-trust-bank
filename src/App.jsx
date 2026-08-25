@@ -10,6 +10,8 @@ import './public-site.css'
 import './customer-dashboard-reference.css'
 import './customer-copy.css'
 
+const API_BASE = window.location.port === '5173' ? 'http://localhost:4000/api' : '/api'
+
 const starterTransactions = [
   { id: 'starter-1', name: 'Harbor & Pine Market', date: 'Today, 10:42 AM', amount: '-$84.20', type: 'Groceries', tone: 'orange' },
   { id: 'starter-2', name: 'Maya Thompson', date: 'Yesterday, 4:18 PM', amount: '+$1,250.00', type: 'Transfer received', tone: 'green' },
@@ -33,9 +35,16 @@ function loadAccounts() {
   return saved.map((account) => ({ ...account, username: account.username || (account.id === 1 ? 'jordan' : account.id === 2 ? 'savings' : `customer${account.id}`), password: account.password || 'welcome', status: account.status || 'Active' }))
 }
 
+async function apiRequest(path, options = {}) {
+  const response = await fetch(`${API_BASE}${path}`, { ...options, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(body.error || 'Request failed')
+  return body
+}
+
 function App() {
   const pathname = window.location.pathname.replace(/\/$/, '') || '/'
-  const customerId = window.location.pathname.match(/^\/customer\/(\d+)/)?.[1]
+  const customerId = window.location.pathname.match(/^\/customer\/([^/]+)/)?.[1]
   const isPublic = pathname === '/' || pathname === '/login' || pathname === '/register'
   const isAdmin = pathname === '/admin' || !customerId
   const [adminAuthenticated, setAdminAuthenticated] = useState(() => sessionStorage.getItem('bluecrest-admin-session') === 'active')
@@ -60,7 +69,7 @@ function App() {
   if (isPublic) return <PublicSite accounts={accounts} setAccounts={setAccounts} initialMode={pathname.slice(1) || 'home'} />
 
   if (!isAdmin) {
-    return <CustomerPortal account={accounts.find((account) => String(account.id) === customerId)} transactions={transactions} onTransfer={processTransfer} issueOtp={issueOtp} verifyOtp={verifyOtp} />
+    return <CustomerPortal account={accounts.find((account) => String(account.id) === customerId)} customerId={customerId} transactions={transactions} onTransfer={processTransfer} issueOtp={issueOtp} verifyOtp={verifyOtp} />
   }
 
   if (!adminAuthenticated) {
@@ -172,26 +181,30 @@ function PublicSite({ accounts, setAccounts, initialMode }) {
   const [form, setForm] = useState({ name: '', email: '', username: '', password: '' })
   const [notice, setNotice] = useState('')
   const navigate = (nextMode) => { setNotice(''); setMode(nextMode); window.history.pushState({}, '', nextMode === 'home' ? '/' : `/${nextMode}`) }
-  const submitRegistration = (event) => {
+  const submitRegistration = async (event) => {
     event.preventDefault()
-    const id = Date.now()
-    const account = { id, name: form.name.trim(), number: `BC-${String(id).slice(-8)}`, type: 'Checking', balance: 0, status: 'Active', username: form.username.trim(), password: form.password, email: form.email }
-    setAccounts([...accounts, account])
-    const welcome = { id: `welcome-${id}`, sender: 'Bluecrest Trust Bank', recipient: form.email, subject: 'Welcome to Bluecrest Trust Bank', preview: 'Your account has been successfully opened. Your online banking access is ready.', time: 'Just now', unread: true, content: `Welcome to Bluecrest Trust Bank. We’re pleased to welcome you as a new customer. Your account has been successfully opened. You can now sign in to online banking to view your account information and manage your banking services.\n\nFor your security, we will never ask you to provide your password or one-time security code by email.` }
-    const existingMail = JSON.parse(localStorage.getItem('bluecrest-welcome-emails') || '[]')
-    localStorage.setItem('bluecrest-welcome-emails', JSON.stringify([welcome, ...existingMail]))
-    setNotice(`Account created. Your customer banking link is ${window.location.origin}/customer/${id}`)
-    setForm({ name: '', email: '', username: '', password: '' })
+    try {
+      const user = await apiRequest('/customers/register', { method: 'POST', body: JSON.stringify(form) })
+      const account = { id: user.id, name: user.name, number: `BC-${user.id.slice(-8)}`, type: 'Checking', balance: 0, status: 'Active', username: user.username, email: user.email }
+      setAccounts([...accounts, account])
+      setNotice(`Account created. Your customer banking link is ${window.location.origin}/customer/${user.id}`)
+      setForm({ name: '', email: '', username: '', password: '' })
+    } catch (error) {
+      setNotice(error.message)
+    }
   }
-  const submitLogin = (event) => {
+  const submitLogin = async (event) => {
     event.preventDefault()
-    const username = form.username.trim().toLowerCase()
-    const account = accounts.find((item) => item.username?.toLowerCase() === username && item.password === form.password && item.status === 'Active')
-    if (account) window.location.href = `/customer/${account.id}`
-    else setNotice('We could not verify those credentials.')
+    try {
+      const result = await apiRequest('/customers/login', { method: 'POST', body: JSON.stringify({ username: form.username.trim().toLowerCase(), password: form.password }) })
+      setNotice(result.delivered ? `A verification code was sent to ${result.delivery}.` : 'The verification email could not be sent.')
+      window.location.href = `/customer/${result.userId}`
+    } catch (error) {
+      setNotice(error.message)
+    }
   }
   if (mode === 'login' || mode === 'register') return <main className="public-auth"><div className="public-auth-card"><div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div><button className="back-link" onClick={() => navigate('home')}>← Back to home</button><p className="eyebrow">{mode === 'login' ? 'CUSTOMER BANKING' : 'OPEN AN ACCOUNT'}</p><h1>{mode === 'login' ? 'Welcome back' : 'Start banking with confidence'}</h1><p>{mode === 'login' ? 'Sign in to your customer banking website.' : 'Create your fictional customer profile in a few steps.'}</p><form onSubmit={mode === 'login' ? submitLogin : submitRegistration}>{mode === 'register' && <><label>Full name<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label><label>Email address<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required /></label></>}<label>Username<input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} required /></label><label>Password<input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required /></label>{notice && <div className="public-notice">{notice}</div>}<button className="public-primary" type="submit">{mode === 'login' ? 'Continue to banking' : 'Create account'}</button></form>{mode === 'login' ? <button className="switch-link" onClick={() => navigate('register')}>New customer? Open an account</button> : <button className="switch-link" onClick={() => navigate('login')}>Already have an account? Sign in</button>}</div></main>
-  return <div className="public-site"><header className="public-header"><div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div><nav><button onClick={() => navigate('login')}>Login</button><button className="public-nav-cta" onClick={() => navigate('register')}>Open an account</button></nav></header><main><section className="public-hero"><div><p className="eyebrow">BANKING, CLEARLY DONE</p><h1>Move forward with confidence.</h1><p>Simple digital banking for everyday decisions, with support when you need it.</p><div className="public-hero-actions"><button className="public-primary" onClick={() => navigate('register')}>Open an account</button><button className="public-secondary" onClick={() => navigate('login')}>Login to banking →</button></div></div><div className="public-hero-card"><span>YOUR MONEY, IN VIEW</span><strong>Secure by design</strong><p>Account insights, helpful alerts, and support in one calm place.</p></div></section><section className="public-services"><p className="eyebrow">MEMBER EXPERIENCE</p><h2>Banking designed around your life.</h2><div><article><b>01</b><h3>Everyday accounts</h3><p>Manage your checking and savings with clarity.</p></article><article><b>02</b><h3>Move money simply</h3><p>Review transfers and account activity in one place.</p></article><article><b>03</b><h3>Support that listens</h3><p>Reach the customer team from your banking website.</p></article></div></section></main></div>
+  return <div className="public-site"><header className="public-header"><div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div><nav><button onClick={() => navigate('login')}>Login</button><button className="public-nav-cta" onClick={() => navigate('register')}>Open an account</button></nav></header><main><section className="public-hero"><div><p className="eyebrow">BANKING, CLEARLY DONE</p><h1>Move forward with confidence.</h1><p>Simple digital banking for everyday decisions, with support when you need it.</p><div className="public-hero-actions"><button className="public-primary" onClick={() => navigate('register')}>Open an account</button><button className="public-secondary" onClick={() => navigate('login')}>Login to banking →</button></div></div><div className="public-hero-card"><span>YOUR MONEY, IN VIEW</span><strong>Secure by design</strong><p>Account insights, helpful alerts, and support in one calm place.</p></div></section><section className="public-services"><p className="eyebrow">MEMBER EXPERIENCE</p><h2>Banking designed around your life.</h2><div><article><b>01</b><h3>Everyday accounts</h3><p>Manage your checking and savings with clarity.</p></article><article><b>02</b><h3>Move money simply</h3><p>Review transfers and account activity in one place.</p></article><article><b>03</b><h3>Support that listens</h3><p>Reach the customer team from your banking website.</p></article></div></section><p className="public-contact">Customer support: <a href="mailto:info@bluecresttrustbank.com">info@bluecresttrustbank.com</a></p></main></div>
 }
 
 function AdminLogin({ onLogin, adminPassword }) {
@@ -234,16 +247,27 @@ function CustomerLogin({ account, onLogin, issueOtp, verifyOtp }) {
   const [credentials, setCredentials] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
   const [otp, setOtp] = useState('')
-  const [otpIssued, setOtpIssued] = useState('')
-  const submit = (event) => {
+  const [otpIssued, setOtpIssued] = useState(null)
+  const submit = async (event) => {
     event.preventDefault()
     if (!otpIssued) {
-      if ((account.username || 'jordan') === credentials.username && (account.password || 'welcome') === credentials.password) setOtpIssued(issueOtp(account.id))
-      else setError('The username or password is incorrect.')
-    } else if (verifyOtp(account.id, otp)) onLogin()
-    else setError('The OTP is incorrect or has expired.')
+      try {
+        const result = await apiRequest('/customers/login', { method: 'POST', body: JSON.stringify({ username: credentials.username.trim().toLowerCase(), password: credentials.password }) })
+        setOtpIssued(result.userId)
+        setError(result.delivered ? `A verification code was sent to ${result.delivery}.` : 'The verification email could not be sent.')
+      } catch (requestError) {
+        setError(requestError.message)
+      }
+    } else {
+      try {
+        await apiRequest('/customers/verify-otp', { method: 'POST', body: JSON.stringify({ userId: otpIssued, code: otp }) })
+        onLogin()
+      } catch (requestError) {
+        setError(requestError.message)
+      }
+    }
   }
-  return <main className="admin-login customer-login"><div className="admin-login-card"><div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div><p className="eyebrow">CUSTOMER BANKING</p><h1>{otpIssued ? 'Verify your identity' : 'Welcome back'}</h1><p className="login-copy">{otpIssued ? 'Enter the one-time code sent to your registered contact.' : 'Sign in to access your account.'}</p><form onSubmit={submit}>{!otpIssued && <><label>Username<input value={credentials.username} onChange={(event) => setCredentials({ ...credentials, username: event.target.value })} required /></label><label>Password<input type="password" value={credentials.password} onChange={(event) => setCredentials({ ...credentials, password: event.target.value })} required /></label></>}{otpIssued && <><label>One-time password<input inputMode="numeric" value={otp} onChange={(event) => setOtp(event.target.value)} maxLength="6" required /></label><div className="otp-code-display" role="status"><span>Your verification code</span><strong>{otpIssued}</strong><small>Valid for 5 minutes</small></div></>}{error && <p className="login-error">{error}</p>}<button className="primary-button" type="submit">{otpIssued ? 'Verify OTP' : 'Continue'}</button></form></div></main>
+  return <main className="admin-login customer-login"><div className="admin-login-card"><div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div><p className="eyebrow">CUSTOMER BANKING</p><h1>{otpIssued ? 'Verify your identity' : 'Welcome back'}</h1><p className="login-copy">{otpIssued ? 'Enter the one-time code sent to your registered contact.' : 'Sign in to access your account.'}</p><form onSubmit={submit}>{!otpIssued && <><label>Username<input value={credentials.username} onChange={(event) => setCredentials({ ...credentials, username: event.target.value })} required /></label><label>Password<input type="password" value={credentials.password} onChange={(event) => setCredentials({ ...credentials, password: event.target.value })} required /></label></>}{otpIssued && <label>One-time password<input inputMode="numeric" value={otp} onChange={(event) => setOtp(event.target.value)} maxLength="6" required /></label>}{error && <p className="login-error">{error}</p>}<button className="primary-button" type="submit">{otpIssued ? 'Verify OTP' : 'Continue'}</button></form></div></main>
 }
 
 function CustomerChat() {
@@ -251,11 +275,21 @@ function CustomerChat() {
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [sent, setSent] = useState([])
-  const send = (event) => {
+  const [error, setError] = useState('')
+  useEffect(() => {
+    if (authenticated) apiRequest('/customer-chat/messages').then(setSent).catch(() => {})
+  }, [authenticated])
+  const send = async (event) => {
     event.preventDefault()
     if (!message.trim()) return
-    setSent([...sent, message.trim()])
-    setMessage('')
+    try {
+      const record = await apiRequest('/customer-chat/messages', { method: 'POST', body: JSON.stringify({ message: message.trim() }) })
+      setSent([...sent, record])
+      setMessage('')
+      setError('')
+    } catch (requestError) {
+      setError(requestError.message)
+    }
   }
   useEffect(() => {
     const handleAuthentication = () => setAuthenticated(true)
@@ -263,7 +297,7 @@ function CustomerChat() {
     return () => window.removeEventListener('bluecrest-customer-authenticated', handleAuthentication)
   }, [])
   if (!authenticated) return null
-  return <>{open && <div className="chat-window customer-chat"><div className="chat-header"><div><strong>Bluecrest support</strong><span>Secure customer support</span></div><button onClick={() => setOpen(false)}>×</button></div><div className="chat-body"><div className="agent-message"><div className="support-avatar">B</div><div><span className="bubble">Hello. How can we help today?</span><small>Support team · now</small></div></div>{sent.map((item, index) => <div className="user-message" key={`${item}-${index}`}><span className="bubble">{item}</span></div>)}</div><form className="chat-form" onSubmit={send}><input value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Write a message..." aria-label="Message support" /><button aria-label="Send message">↑</button></form></div>}<button className="chat-launcher customer-chat-launcher" onClick={() => setOpen(true)}><span className="chat-dot" />Chat with support <b>↗</b></button></>
+  return <>{open && <div className="chat-window customer-chat"><div className="chat-header"><div><strong>Bluecrest support</strong><span>Secure customer support</span></div><button onClick={() => setOpen(false)}>×</button></div><div className="chat-body"><div className="agent-message"><div className="support-avatar">B</div><div><span className="bubble">Hello. How can we help today?</span><small>Support team · now</small></div></div>{sent.map((item, index) => <div className="user-message" key={item.id || index}><span className="bubble">{item.message || item}</span></div>)}{error && <small className="login-error">{error}</small>}</div><form className="chat-form" onSubmit={send}><input value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Write a message..." aria-label="Message support" /><button aria-label="Send message">↑</button></form></div>}<button className="chat-launcher customer-chat-launcher" onClick={() => setOpen(true)}><span className="chat-dot" />Chat with support <b>↗</b></button></>
 }
 
 function CustomerPortal({ account, transactions, onTransfer, issueOtp, verifyOtp }) {
@@ -275,13 +309,20 @@ function CustomerPortal({ account, transactions, onTransfer, issueOtp, verifyOtp
   if (account.status !== 'Active') return <div className="customer-missing"><h1>Account unavailable</h1><p>This account has been deactivated. Please contact support.</p></div>
   if (!authenticated) return <CustomerLogin account={account} issueOtp={issueOtp} verifyOtp={verifyOtp} onLogin={() => { setAuthenticated(true); sessionStorage.setItem('bluecrest-customer-auth', 'active'); window.dispatchEvent(new Event('bluecrest-customer-authenticated')) }} />
   const accountTransactions = transactions.filter((item) => !item.accountId || item.accountId === account.id).slice(0, 5)
-  const submitTransfer = (event) => {
+  const submitTransfer = async (event) => {
     event.preventDefault()
     const result = onTransfer(account.id, transfer)
     setFeedback(result.ok ? { type: 'success', text: 'Transfer Successful' } : { type: 'error', text: 'Insufficient Balance' })
+    if (result.ok) {
+      try {
+        await apiRequest('/customers/debit-alert', { method: 'POST', body: JSON.stringify({ amount: transfer.amount, description: `Transfer to ${transfer.account}` }) })
+      } catch {
+        setFeedback({ type: 'success', text: 'Transfer Successful' })
+      }
+    }
       if (result.ok) { setTransfer({ recipient: '', account: '', amount: '' }); setShowTransfer(false) }
   }
-  return <div className="customer-portal"><header className="customer-header"><div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div><div className="avatar avatar-small">{account.name.slice(0, 2).toUpperCase()}</div></header><main className="customer-main"><p className="eyebrow">PERSONAL BANKING</p><h1>Good morning, {account.name}</h1><section className="customer-balance"><span>Available balance</span><strong>${account.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })} <small>USD</small></strong><div><span>{account.name} · {account.number}</span><b>Active</b></div></section>{feedback && <div className={`transfer-feedback ${feedback.type}`}><strong>{feedback.text}</strong><span>{feedback.type === 'success' ? 'Your simulated transfer was added to transaction history.' : 'The requested amount is greater than your available balance.'}</span></div>}<section className="customer-actions"><button>Account info</button><button onClick={() => { setShowTransfer(true); setFeedback(null) }}>Send money</button><button>Pay a bill</button><button>Cards</button></section>{showTransfer && <form className="transfer-panel" onSubmit={submitTransfer}><h2>Send money</h2><p>Simulated transfer only. No real funds are moved.</p><label>Recipient name<input value={transfer.recipient} onChange={(event) => setTransfer({ ...transfer, recipient: event.target.value })} required /></label><label>Recipient account<input value={transfer.account} onChange={(event) => setTransfer({ ...transfer, account: event.target.value })} required /></label><label>Amount<input type="number" min="0.01" step="0.01" value={transfer.amount} onChange={(event) => setTransfer({ ...transfer, amount: event.target.value })} required /></label><div><button className="primary-button" type="submit">Review transfer</button><button type="button" onClick={() => setShowTransfer(false)}>Cancel</button></div></form>}<div className="customer-section-title"><h2>Recent transactions</h2><button>View all</button></div><div className="customer-transactions">{accountTransactions.map((transaction) => <div className="transaction" key={`${transaction.name}-${transaction.date}`}><div className={`transaction-icon ${transaction.tone}`}>{transaction.name[0]}</div><div className="transaction-info"><strong>{transaction.name}</strong><span>{transaction.type} · {transaction.date}{transaction.status && ` · ${transaction.status}`}</span></div><strong className={transaction.amount[0] === '+' ? 'amount positive' : 'amount'}>{transaction.amount}</strong></div>)}</div></main><nav className="customer-nav"><button className="selected">⌂<span>Home</span></button><button>⌁<span>Stats</span></button><button>▣<span>Cards</span></button><button>◯<span>Profile</span></button></nav></div>
+  return <div className="customer-portal"><header className="customer-header"><div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div><div className="avatar avatar-small">{account.name.slice(0, 2).toUpperCase()}</div></header><main className="customer-main"><p className="eyebrow">PERSONAL BANKING</p><h1>Good morning, {account.name}</h1><section className="customer-balance"><span>Available balance</span><strong>${account.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })} <small>USD</small></strong><div><span>{account.name} · {account.number}</span><b>Active</b></div></section>{feedback && <div className={`transfer-feedback ${feedback.type}`}><strong>{feedback.text}</strong><span>{feedback.type === 'success' ? 'Your simulated transfer was added to transaction history.' : 'The requested amount is greater than your available balance.'}</span></div>}<section className="customer-actions"><button>Account info</button><button onClick={() => { setShowTransfer(true); setFeedback(null) }}>Send money</button><button>Pay a bill</button><button>Cards</button></section>{showTransfer && <form className="transfer-panel" onSubmit={submitTransfer}><h2>Send money</h2><p>Simulated transfer only. No real funds are moved.</p><label>Recipient name<input value={transfer.recipient} onChange={(event) => setTransfer({ ...transfer, recipient: event.target.value })} required /></label><label>Recipient account<input value={transfer.account} onChange={(event) => setTransfer({ ...transfer, account: event.target.value })} required /></label><label>Amount<input type="number" min="0.01" step="0.01" value={transfer.amount} onChange={(event) => setTransfer({ ...transfer, amount: event.target.value })} required /></label><div><button className="primary-button" type="submit">Review transfer</button><button type="button" onClick={() => setShowTransfer(false)}>Cancel</button></div></form>}<div className="customer-section-title"><h2>Recent transactions</h2><button>View all</button></div><div className="customer-transactions">{accountTransactions.map((transaction) => <div className="transaction" key={`${transaction.name}-${transaction.date}`}><div className={`transaction-icon ${transaction.tone}`}>{transaction.name[0]}</div><div className="transaction-info"><strong>{transaction.name}</strong><span>{transaction.type} · {transaction.date}{transaction.status && ` · ${transaction.status}`}</span></div><strong className={transaction.amount[0] === '+' ? 'amount positive' : 'amount'}>{transaction.amount}</strong></div>)}</div></main><nav className="customer-nav"><button className="selected">⌂<span>Home</span></button><button>⌁<span>Stats</span></button><button>▣<span>Cards</span></button><button>◯<span>Profile</span></button></nav><CustomerChat /></div>
 }
 
 function PaymentsView({ transactionForm, setTransactionForm, addTransaction, transactions, setTransactions }) {
@@ -297,6 +338,26 @@ function PaymentsView({ transactionForm, setTransactionForm, addTransaction, tra
   return <section className="management-view"><div className="section-heading"><div><p className="eyebrow">ACCOUNT ACTIVITY</p><h2>Add or correct transaction</h2></div></div><form className="form-panel transaction-form" onSubmit={addTransaction}><label>Payee or source<input value={transactionForm.name} onChange={(event) => setTransactionForm({ ...transactionForm, name: event.target.value })} placeholder="e.g. Apartment rent" required /></label><label>Amount<input type="number" min="0.01" step="0.01" value={transactionForm.amount} onChange={(event) => setTransactionForm({ ...transactionForm, amount: event.target.value })} placeholder="0.00" required /></label><label>Transaction date<input type="date" value={transactionForm.date} onChange={(event) => setTransactionForm({ ...transactionForm, date: event.target.value })} required /></label><label>Direction<select value={transactionForm.direction} onChange={(event) => setTransactionForm({ ...transactionForm, direction: event.target.value })}><option value="debit">Money out</option><option value="credit">Money in</option></select></label><label>Category<input value={transactionForm.type} onChange={(event) => setTransactionForm({ ...transactionForm, type: event.target.value })} placeholder="Transfer" /></label><button className="primary-button" type="submit">Add transaction</button></form><div className="admin-transaction-list">{transactions.slice(0, 8).map((transaction, index) => <div className="admin-transaction-row" key={transaction.id || `${transaction.name}-${index}`}>{editingId === transaction.id ? <form onSubmit={editTransaction}><input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /><input type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} required /><button type="submit">Save correction</button></form> : <><span><strong>{transaction.name}</strong><small>{transaction.amount} · {transaction.date} {transaction.status ? `· ${transaction.status}` : ''}</small></span><button disabled={!transaction.id} onClick={() => { setEditingId(transaction.id); setDraft({ name: transaction.name, date: new Date(transaction.date).toISOString().slice(0, 10) })}}>Edit</button></>}</div>)}</div></section>
 }
 
-function Webmail() { const welcomeMessages = JSON.parse(localStorage.getItem('bluecrest-welcome-emails') || '[]'); const inbox = [...welcomeMessages, ...messages]; return <section className="webmail"><div className="mail-toolbar"><div className="mail-search">⌕ <input placeholder="Search your mail" /></div><button className="compose-button">＋ Compose</button></div><div className="mail-tabs"><button className="selected">Inbox <span>{inbox.filter((mail) => mail.unread).length}</span></button><button>Sent</button><button>Drafts</button><button>Archive</button></div><div className="full-mail-list">{inbox.map((mail, index) => <button className={`full-mail-row ${mail.unread ? 'is-unread' : ''}`} key={mail.id || `${mail.subject}-${index}`}><div className="mail-avatar">{mail.sender[0]}</div><div className="full-mail-copy"><strong>{mail.sender}</strong><b>{mail.subject}</b><span>{mail.preview}</span>{mail.recipient && <small>To: {mail.recipient}</small>}</div><time>{mail.time}</time><span className="mail-more">•••</span></button>)}</div></section> }
+function Webmail() {
+  const welcomeMessages = JSON.parse(localStorage.getItem('bluecrest-welcome-emails') || '[]')
+  const inbox = [...welcomeMessages, ...messages]
+  const [compose, setCompose] = useState(false)
+  const [form, setForm] = useState({ to: '', subject: '', text: '' })
+  const [adminKey, setAdminKey] = useState(() => sessionStorage.getItem('bluecrest-admin-api-key') || '')
+  const [notice, setNotice] = useState('')
+  const send = async (event) => {
+    event.preventDefault()
+    try {
+      await apiRequest('/admin/email', { method: 'POST', headers: { 'x-admin-key': adminKey }, body: JSON.stringify(form) })
+      setNotice('Message sent successfully.')
+      sessionStorage.setItem('bluecrest-admin-api-key', adminKey)
+      setForm({ to: '', subject: '', text: '' })
+      setCompose(false)
+    } catch (error) {
+      setNotice(error.message)
+    }
+  }
+  return <section className="webmail"><div className="mail-toolbar"><div className="mail-search">⌕ <input placeholder="Search your mail" /></div><button className="compose-button" onClick={() => setCompose(!compose)}>＋ Compose</button></div>{compose && <form className="form-panel" onSubmit={send}><label>Recipient email<input type="email" value={form.to} onChange={(event) => setForm({ ...form, to: event.target.value })} required /></label><label>Subject<input value={form.subject} onChange={(event) => setForm({ ...form, subject: event.target.value })} required /></label><label>Message<textarea value={form.text} onChange={(event) => setForm({ ...form, text: event.target.value })} required /></label><label>Admin mail key<input type="password" value={adminKey} onChange={(event) => setAdminKey(event.target.value)} required /></label>{notice && <p className="settings-notice">{notice}</p>}<button className="primary-button" type="submit">Send email</button></form>}{!compose && notice && <p className="settings-notice">{notice}</p>}<div className="mail-tabs"><button className="selected">Inbox <span>{inbox.filter((mail) => mail.unread).length}</span></button><button>Sent</button><button>Drafts</button><button>Archive</button></div><div className="full-mail-list">{inbox.map((mail, index) => <button className={`full-mail-row ${mail.unread ? 'is-unread' : ''}`} key={mail.id || `${mail.subject}-${index}`}><div className="mail-avatar">{mail.sender[0]}</div><div className="full-mail-copy"><strong>{mail.sender}</strong><b>{mail.subject}</b><span>{mail.preview}</span>{mail.recipient && <small>To: {mail.recipient}</small>}</div><time>{mail.time}</time><span className="mail-more">•••</span></button>)}</div></section>
+}
 
 export default App

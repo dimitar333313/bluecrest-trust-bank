@@ -1,14 +1,18 @@
 services:
   - type: web
-    name: bluecrest-trust-bank-api
+    name: bluecrest-trust-bank
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npm run build
     startCommand: npm run server
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: "10000"
       - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_API_KEY
         generateValue: true
       - key: CLIENT_ORIGIN
         sync: false
@@ -23,4 +27,6 @@ services:
       - key: SMTP_PASSWORD
         sync: false
       - key: MAIL_FROM
-        value: "Olivia <bluecresttrustbank@gmail.com>"
+        value: "Bluecrest Trust Bank <info@bluecresttrustbank.com>"
+      - key: SUPPORT_EMAIL
+        value: "info@bluecresttrustbank.com"

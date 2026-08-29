@@ -35,6 +35,38 @@ function loadAccounts() {
   return saved.map((account) => ({ ...account, username: account.username || (account.id === 1 ? 'jordan' : account.id === 2 ? 'savings' : `customer${account.id}`), password: account.password || 'welcome', status: account.status || 'Active' }))
 }
 
+function getLocalCustomerRecords() {
+  try {
+    return JSON.parse(localStorage.getItem('bluecrest-customer-records') || '[]')
+  } catch {
+    return []
+  }
+}
+
+function saveLocalCustomerRecord(record) {
+  const records = getLocalCustomerRecords().filter((item) => item.id !== record.id)
+  records.push({
+    id: record.id,
+    name: record.name,
+    email: record.email,
+    username: record.username,
+    password: record.password,
+    status: record.status || 'Active',
+  })
+  localStorage.setItem('bluecrest-customer-records', JSON.stringify(records))
+  return records
+}
+
+function findLocalCustomerRecord(usernameOrEmail, password) {
+  const lookup = String(usernameOrEmail || '').trim().toLowerCase()
+  const targetPassword = String(password || '')
+  return getLocalCustomerRecords().find((record) => {
+    const username = String(record.username || '').trim().toLowerCase()
+    const email = String(record.email || '').trim().toLowerCase()
+    return (username === lookup || email === lookup) && record.password === targetPassword
+  }) || null
+}
+
 async function apiRequest(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, { ...options, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } })
   const body = await response.json().catch(() => ({}))
@@ -131,6 +163,14 @@ function App() {
     event.preventDefault()
     if (!accountForm.name.trim()) return
     const newAccount = { id: Date.now(), name: accountForm.name.trim(), email: accountForm.email, number: `**** ${Math.floor(1000 + Math.random() * 9000)}`, type: accountForm.type, balance: Number(accountForm.balance) || 0, status: 'Active', username: accountForm.username.trim() || `customer${Date.now()}`, password: accountForm.password || 'welcome' }
+    saveLocalCustomerRecord({
+      id: newAccount.id,
+      name: newAccount.name,
+      email: newAccount.email,
+      username: newAccount.username,
+      password: newAccount.password,
+      status: newAccount.status,
+    })
     setAccounts([...accounts, newAccount])
     const welcome = { id: `welcome-${newAccount.id}`, sender: 'Bluecrest Trust Bank', recipient: accountForm.email || 'customer@example.com', subject: 'Welcome to Bluecrest Trust Bank', preview: 'Your account has been successfully opened. Your online banking access is ready.', time: 'Just now', unread: true, content: 'Your account has been opened. Never share your password or one-time security code by email.' }
     const existingMail = JSON.parse(localStorage.getItem('bluecrest-welcome-emails') || '[]')
@@ -185,6 +225,7 @@ function PublicSite({ accounts, setAccounts, initialMode }) {
     event.preventDefault()
     try {
       const user = await apiRequest('/customers/register', { method: 'POST', body: JSON.stringify(form) })
+      saveLocalCustomerRecord({ id: user.id, name: user.name, email: user.email, username: user.username, password: form.password, status: 'Active' })
       const account = { id: user.id, name: user.name, number: `BC-${user.id.slice(-8)}`, type: 'Checking', balance: 0, status: 'Active', username: user.username, email: user.email }
       setAccounts([...accounts, account])
       setNotice(`Account created. Your customer banking link is ${window.location.origin}/customer/${user.id}`)
@@ -203,7 +244,7 @@ function PublicSite({ accounts, setAccounts, initialMode }) {
       setNotice(error.message)
     }
   }
-  if (mode === 'login' || mode === 'register') return <main className="public-auth"><div className="public-auth-card"><div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div><button className="back-link" onClick={() => navigate('home')}>← Back to home</button><p className="eyebrow">{mode === 'login' ? 'CUSTOMER BANKING' : 'OPEN AN ACCOUNT'}</p><h1>{mode === 'login' ? 'Welcome back' : 'Start banking with confidence'}</h1><p>{mode === 'login' ? 'Sign in to your customer banking website.' : 'Create your fictional customer profile in a few steps.'}</p><form onSubmit={mode === 'login' ? submitLogin : submitRegistration}>{mode === 'register' && <><label>Full name<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label><label>Email address<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required /></label></>}<label>Username<input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} required /></label><label>Password<input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required /></label>{notice && <div className="public-notice">{notice}</div>}<button className="public-primary" type="submit">{mode === 'login' ? 'Continue to banking' : 'Create account'}</button></form>{mode === 'login' ? <button className="switch-link" onClick={() => navigate('register')}>New customer? Open an account</button> : <button className="switch-link" onClick={() => navigate('login')}>Already have an account? Sign in</button>}</div></main>
+  if (mode === 'login' || mode === 'register') return <main className="public-auth"><div className="public-auth-card"><div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div><button className="back-link" onClick={() => navigate('home')}>← Back to home</button><p className="eyebrow">{mode === 'login' ? 'CUSTOMER BANKING' : 'OPEN AN ACCOUNT'}</p><h1>{mode === 'login' ? 'Welcome back' : 'Start banking with confidence'}</h1><p>{mode === 'login' ? 'Sign in to your customer banking website.' : 'Create your fictional customer profile in a few steps.'}</p><form onSubmit={mode === 'login' ? submitLogin : submitRegistration}>{mode === 'register' && <><label>Full name<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label><label>Email address<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required /></label></>}<label>{mode === 'login' ? 'Username or email address' : 'Username'}<input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} required /></label><label>Password<input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required /></label>{notice && <div className="public-notice">{notice}</div>}<button className="public-primary" type="submit">{mode === 'login' ? 'Continue to banking' : 'Create account'}</button></form>{mode === 'login' ? <button className="switch-link" onClick={() => navigate('register')}>New customer? Open an account</button> : <button className="switch-link" onClick={() => navigate('login')}>Already have an account? Sign in</button>}</div></main>
   return <div className="public-site"><header className="public-header"><div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div><nav><button onClick={() => navigate('login')}>Login</button><button className="public-nav-cta" onClick={() => navigate('register')}>Open an account</button></nav></header><main><section className="public-hero"><div><p className="eyebrow">BANKING, CLEARLY DONE</p><h1>Move forward with confidence.</h1><p>Simple digital banking for everyday decisions, with support when you need it.</p><div className="public-hero-actions"><button className="public-primary" onClick={() => navigate('register')}>Open an account</button><button className="public-secondary" onClick={() => navigate('login')}>Login to banking →</button></div></div><div className="public-hero-card"><span>YOUR MONEY, IN VIEW</span><strong>Secure by design</strong><p>Account insights, helpful alerts, and support in one calm place.</p></div></section><section className="public-services"><p className="eyebrow">MEMBER EXPERIENCE</p><h2>Banking designed around your life.</h2><div><article><b>01</b><h3>Everyday accounts</h3><p>Manage your checking and savings with clarity.</p></article><article><b>02</b><h3>Move money simply</h3><p>Review transfers and account activity in one place.</p></article><article><b>03</b><h3>Support that listens</h3><p>Reach the customer team from your banking website.</p></article></div></section><p className="public-contact">Customer support: <a href="mailto:info@bluecresttrustbank.com">info@bluecresttrustbank.com</a></p></main></div>
 }
 
@@ -251,14 +292,27 @@ function CustomerLogin({ account, onLogin, issueOtp, verifyOtp }) {
   const submit = async (event) => {
     event.preventDefault()
     if (!otpIssued) {
+      const localCustomer = findLocalCustomerRecord(credentials.username, credentials.password)
       try {
         const result = await apiRequest('/customers/login', { method: 'POST', body: JSON.stringify({ username: credentials.username.trim().toLowerCase(), password: credentials.password }) })
         setOtpIssued(result.userId)
         setError(result.delivered ? `A verification code was sent to ${result.delivery}.` : 'The verification email could not be sent.')
       } catch (requestError) {
-        setError(requestError.message)
+        if (!localCustomer) {
+          setError(requestError.message)
+          return
+        }
+        const localCode = String(Math.floor(100000 + Math.random() * 900000))
+        sessionStorage.setItem(`bluecrest-local-otp-${localCustomer.id}`, localCode)
+        setOtpIssued(localCustomer.id)
+        setError(`A verification code was generated for demo login: ${localCode}`)
       }
     } else {
+      const localCode = sessionStorage.getItem(`bluecrest-local-otp-${otpIssued}`)
+      if (localCode === otp) {
+        onLogin()
+        return
+      }
       try {
         await apiRequest('/customers/verify-otp', { method: 'POST', body: JSON.stringify({ userId: otpIssued, code: otp }) })
         onLogin()

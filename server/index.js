@@ -56,7 +56,8 @@ function requireCustomer(req, res, next) {
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'Bluecrest Trust Bank API' }))
 
 app.post('/api/customers/register', async (req, res) => {
-  const { name, email, username, password } = req.body
+  const { name, email, password } = req.body
+  const username = String(req.body.username || '').trim().toLowerCase()
   if (!name || !email || !username || !password) return res.status(400).json({ error: 'Name, email, username, and password are required' })
   const data = readData()
   if (data.users.some((user) => user.username === username)) return res.status(409).json({ error: 'Username already exists' })
@@ -70,7 +71,8 @@ app.post('/api/customers/register', async (req, res) => {
 
 app.post('/api/customers/login', async (req, res) => {
   const data = readData()
-  const user = data.users.find((item) => item.username === req.body.username)
+  const login = String(req.body.username || req.body.email || '').trim().toLowerCase()
+  const user = data.users.find((item) => item.username.toLowerCase() === login || item.email.toLowerCase() === login)
   if (!user || user.status !== 'Active' || !(await bcrypt.compare(req.body.password || '', user.passwordHash))) return res.status(401).json({ error: 'Invalid credentials' })
   const code = String(crypto.randomInt(100000, 1000000))
   data.otps = data.otps.filter((item) => item.userId !== user.id)

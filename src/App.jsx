@@ -111,20 +111,12 @@ function App() {
 
   const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0)
 
-  const updatePrimaryBalance = (event) => {
-    event.preventDefault()
-    const value = Number(balanceDraft)
-    if (!Number.isFinite(value) || value < 0) return
-    setAccounts(accounts.map((account, index) => index === 0 ? { ...account, balance: value } : account))
-    setShowBalanceEditor(false)
-  }
-
   function processTransfer(accountId, transfer) {
     const account = accounts.find((item) => item.id === accountId)
     const amount = Number(transfer.amount)
     if (!account || !Number.isFinite(amount) || amount <= 0 || account.balance < amount) return { ok: false }
     const timestamp = new Date()
-    const record = { id: `transfer-${timestamp.getTime()}`, accountId, name: transfer.recipient, date: timestamp.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' }), amount: `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, type: 'Transfer sent', tone: 'blue' }
+    const record = { id: `transfer-${timestamp.getTime()}`, accountId, name: transfer.recipient, date: timestamp.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }), amount: `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, type: 'Transfer sent', tone: 'blue' }
     setAccounts(accounts.map((item) => item.id === accountId ? { ...item, balance: item.balance - amount } : item))
     setTransactions([record, ...transactions])
     return { ok: true, record }
@@ -174,14 +166,7 @@ function App() {
       return
     }
     const newAccount = { id: registeredUser.id, name: registeredUser.name, email: registeredUser.email, number: `**** ${Math.floor(1000 + Math.random() * 9000)}`, type: accountForm.type, balance: Number(accountForm.balance) || 0, status: 'Active', username, email: registeredUser.email }
-    saveLocalCustomerRecord({
-      id: newAccount.id,
-      name: newAccount.name,
-      email: newAccount.email,
-      username: newAccount.username,
-      password: newAccount.password,
-      status: newAccount.status,
-    })
+    saveLocalCustomerRecord({ id: newAccount.id, name: newAccount.name, email: newAccount.email, username: newAccount.username, password: newAccount.password, status: newAccount.status })
     setAccounts([...accounts, newAccount])
     const welcome = { id: `welcome-${newAccount.id}`, sender: 'Bluecrest Trust Bank', recipient: accountForm.email || 'customer@example.com', subject: 'Welcome to Bluecrest Trust Bank', preview: 'Your account has been created successfully.' }
     const existingMail = JSON.parse(localStorage.getItem('bluecrest-welcome-emails') || '[]')
@@ -216,11 +201,11 @@ function App() {
       <main className="main-content">
         <header className="topbar"><div><p className="eyebrow">SATURDAY, AUGUST 22, 2026</p><h1>{active === 'Webmail' ? 'Administrative webmail' : active === 'Accounts' ? 'Customer accounts' : active === 'Payments' ? 'Transactions' : active === 'Settings' ? 'Admin settings' : 'Overview'}</h1></div></header>
 
-        {active === 'Webmail' ? <Webmail /> : <>
-          {active === 'Accounts' ? <AccountsView accounts={accounts} showAccountForm={showAccountForm} setShowAccountForm={setShowAccountForm} accountForm={accountForm} setAccountForm={setAccountForm} createAccount={createAccount} createdCustomerLink={createdCustomerLink} accountFormError={accountFormError} setAccountFormError={setAccountFormError} otpCodes={otpCodes} issueOtp={issueOtp} verifyOtp={verifyOtp} updateAccount={updateAccount} deleteAccount={deleteAccount} /> : active === 'Payments' ? <PaymentsView transactionForm={transactionForm} setTransactionForm={setTransactionForm} addTransaction={addTransaction} transactions={transactions} setTransactions={setTransactions} /> : active === 'Settings' ? <AdminSettings adminPassword={adminPassword} setAdminPassword={setAdminPassword} setAuditLogs={setAuditLogs} auditLogs={auditLogs} /> : <>
-            <section className="admin-overview"><div className="admin-overview-heading"><p className="eyebrow">PRIVATE WORKSPACE</p><h2>Admin dashboard</h2><p>Monitor access, transactions, support, and security from your control center.</p></div><div className="overview-grid"><div className="stat-card"><p>Total Assets</p><h3>${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h3><small>All customer accounts</small></div><div className="stat-card"><p>Active Customers</p><h3>{accounts.length}</h3><small>Verified identities</small></div><div className="stat-card"><p>Transactions</p><h3>{transactions.length}</h3><small>This quarter</small></div><div className="stat-card"><p>Audit Logs</p><h3>{auditLogs.length}</h3><small>System events</small></div></div></section>
-          </>}
-        </>}
+        {active === 'Webmail' && <Webmail />}
+        {active === 'Accounts' && <AccountsView accounts={accounts} showAccountForm={showAccountForm} setShowAccountForm={setShowAccountForm} accountForm={accountForm} setAccountForm={setAccountForm} createAccount={createAccount} createdCustomerLink={createdCustomerLink} accountFormError={accountFormError} setAccountFormError={setAccountFormError} otpCodes={otpCodes} issueOtp={issueOtp} verifyOtp={verifyOtp} updateAccount={updateAccount} deleteAccount={deleteAccount} />}
+        {active === 'Payments' && <PaymentsView transactionForm={transactionForm} setTransactionForm={setTransactionForm} addTransaction={addTransaction} transactions={transactions} setTransactions={setTransactions} />}
+        {active === 'Settings' && <AdminSettings adminPassword={adminPassword} setAdminPassword={setAdminPassword} setAuditLogs={setAuditLogs} auditLogs={auditLogs} />}
+        {active === 'Overview' && <section className="admin-overview"><div className="admin-overview-heading"><p className="eyebrow">PRIVATE WORKSPACE</p><h2>Admin dashboard</h2><p>Monitor access, transactions, support, and security from your control center.</p></div><div className="overview-grid"><div className="stat-card"><p>Total Assets</p><h3>${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h3><small>All customer accounts</small></div><div className="stat-card"><p>Active Customers</p><h3>{accounts.length}</h3><small>Verified identities</small></div><div className="stat-card"><p>Transactions</p><h3>{transactions.length}</h3><small>This quarter</small></div><div className="stat-card"><p>Audit Logs</p><h3>{auditLogs.length}</h3><small>System events</small></div></div></section>}
       </main>
     </div>
   )
@@ -231,11 +216,7 @@ function PublicSite({ accounts, setAccounts, initialMode }) {
   const [form, setForm] = useState({ name: '', email: '', username: '', password: '' })
   const [notice, setNotice] = useState('')
   
-  const navigate = (nextMode) => { 
-    setNotice('') 
-    setMode(nextMode) 
-    window.history.pushState({}, '', nextMode === 'home' ? '/' : `/${nextMode}`) 
-  }
+  const navigate = (nextMode) => { setNotice(''); setMode(nextMode); window.history.pushState({}, '', nextMode === 'home' ? '/' : `/${nextMode}`) }
   
   const submitRegistration = async (event) => {
     event.preventDefault()
@@ -289,7 +270,6 @@ function PublicSite({ accounts, setAccounts, initialMode }) {
         <div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div>
         <nav><button onClick={() => navigate('login')}>Login</button><button onClick={() => navigate('register')}>Open Account</button></nav>
       </header>
-      
       <section className="public-hero">
         <div className="public-hero-content">
           <h1>Banking Reimagined for Your Success</h1>
@@ -299,29 +279,7 @@ function PublicSite({ accounts, setAccounts, initialMode }) {
             <button className="secondary-button" onClick={() => navigate('login')}>Sign In</button>
           </div>
         </div>
-        <div className="public-hero-graphic">
-          <div className="graphic-container">
-            <svg viewBox="0 0 400 400" style={{ width: '100%', height: '100%' }}>
-              <defs>
-                <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style={{ stopColor: '#1558bb', stopOpacity: 1 }} />
-                  <stop offset="100%" style={{ stopColor: '#0a8f5f', stopOpacity: 1 }} />
-                </linearGradient>
-              </defs>
-              <rect x="80" y="100" width="240" height="140" rx="12" fill="url(#cardGrad)" opacity="0.9" />
-              <circle cx="120" cy="140" r="8" fill="white" />
-              <circle cx="120" cy="155" r="8" fill="white" />
-              <circle cx="120" cy="170" r="8" fill="white" />
-              <text x="150" y="155" fontSize="20" fontWeight="bold" fill="white">BLUECREST</text>
-              <text x="150" y="180" fontSize="12" fill="white" opacity="0.8">****  ****  ****  4288</text>
-              <path d="M 80 280 Q 120 250, 200 270 T 320 280" stroke="#1558bb" strokeWidth="3" fill="none" opacity="0.3" />
-              <circle cx="200" cy="320" r="30" fill="#0a8f5f" opacity="0.2" />
-              <circle cx="200" cy="320" r="20" fill="none" stroke="#0a8f5f" strokeWidth="2" />
-            </svg>
-          </div>
-        </div>
       </section>
-      
       <section className="features-section">
         <div className="section-title">
           <h2>Why Choose Bluecrest?</h2>
@@ -336,21 +294,19 @@ function PublicSite({ accounts, setAccounts, initialMode }) {
           <div className="feature-card"><div className="feature-icon">🎯</div><h3>Financial Goals</h3><p>Smart tools to help you save, invest, and achieve your financial dreams.</p></div>
         </div>
       </section>
-      
       <section className="cta-section">
         <h2>Ready to Get Started?</h2>
         <p>Join thousands of customers enjoying safe, fast, and easy banking with Bluecrest Trust Bank.</p>
         <button className="cta-button" onClick={() => navigate('register')}>Open Your Account Today</button>
       </section>
-      
       <footer className="public-footer">
         <div className="footer-content">
-          <div className="footer-section"><h4>About</h4><ul><li><a href="#about">About Bluecrest</a></li><li><a href="#careers">Careers</a></li><li><a href="#press">Press</a></li><li><a href="#blog">Blog</a></li></ul></div>
-          <div className="footer-section"><h4>Products</h4><ul><li><a href="#checking">Checking Accounts</a></li><li><a href="#savings">Savings Accounts</a></li><li><a href="#loans">Loans</a></li><li><a href="#investments">Investments</a></li></ul></div>
-          <div className="footer-section"><h4>Support</h4><ul><li><a href="#help">Help Center</a></li><li><a href="#contact">Contact Us</a></li><li><a href="#faq">FAQ</a></li><li><a href="#security">Security</a></li></ul></div>
-          <div className="footer-section"><h4>Legal</h4><ul><li><a href="#privacy">Privacy Policy</a></li><li><a href="#terms">Terms of Service</a></li><li><a href="#compliance">Compliance</a></li><li><a href="#cookies">Cookie Policy</a></li></ul></div>
+          <div className="footer-section"><h4>About</h4><ul><li><a href="#about">About Bluecrest</a></li><li><a href="#careers">Careers</a></li></ul></div>
+          <div className="footer-section"><h4>Products</h4><ul><li><a href="#checking">Checking</a></li><li><a href="#savings">Savings</a></li></ul></div>
+          <div className="footer-section"><h4>Support</h4><ul><li><a href="#help">Help Center</a></li><li><a href="#contact">Contact Us</a></li></ul></div>
+          <div className="footer-section"><h4>Legal</h4><ul><li><a href="#privacy">Privacy Policy</a></li><li><a href="#terms">Terms</a></li></ul></div>
         </div>
-        <div className="footer-bottom"><p>&copy; 2026 Bluecrest Trust Bank. All rights reserved. Banking services provided securely.</p></div>
+        <div className="footer-bottom"><p>&copy; 2026 Bluecrest Trust Bank. All rights reserved.</p></div>
       </footer>
     </div>
   )
@@ -359,7 +315,6 @@ function PublicSite({ accounts, setAccounts, initialMode }) {
 function AdminLogin({ onLogin, adminPassword }) {
   const [credentials, setCredentials] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
-
   const submit = (event) => {
     event.preventDefault()
     if (credentials.username === 'admin' && credentials.password === adminPassword) {
@@ -368,7 +323,6 @@ function AdminLogin({ onLogin, adminPassword }) {
     }
     setError('Enter the authorized administrator credentials.')
   }
-
   return <main className="admin-login"><div className="admin-login-card"><div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div><p className="eyebrow">ADMINISTRATOR ACCESS</p><h1>Admin Panel</h1><form onSubmit={submit}><input type="text" placeholder="Username" value={credentials.username} onChange={(e) => setCredentials({ ...credentials, username: e.target.value })} /><input type="password" placeholder="Password" value={credentials.password} onChange={(e) => setCredentials({ ...credentials, password: e.target.value })} /><button type="submit" className="primary-button">Sign in</button></form>{error && <p className="error">{error}</p>}</div></main>
 }
 
@@ -385,7 +339,7 @@ function AdminSettings({ adminPassword, setAdminPassword, setAuditLogs, auditLog
     setForm({ current: '', next: '', confirm: '' })
     setNotice('Admin password updated successfully.')
   }
-  return <section className="management-view"><div className="section-heading"><div><p className="eyebrow">SECURITY</p><h2>Admin settings</h2></div></div><form className="form-panel admin-password-form" onSubmit={savePassword}><div><label>Current Password</label><input type="password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} required /></div><div><label>New Password</label><input type="password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} required /></div><div><label>Confirm Password</label><input type="password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} required /></div><button type="submit" className="primary-button">Update Password</button></form>{notice && <p style={{ marginTop: '20px', padding: '12px', borderRadius: '6px', backgroundColor: form.current === adminPassword && form.next === form.confirm ? '#e8f5e9' : '#ffebee', color: form.current === adminPassword && form.next === form.confirm ? '#2e7d32' : '#c62828' }}>{notice}</p>}</section>
+  return <section className="management-view"><div className="section-heading"><div><p className="eyebrow">SECURITY</p><h2>Admin settings</h2></div></div><form className="form-panel" onSubmit={savePassword}><div><label>Current Password</label><input type="password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} required /></div><div><label>New Password</label><input type="password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} required /></div><div><label>Confirm Password</label><input type="password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} required /></div><button type="submit" className="primary-button">Update Password</button></form>{notice && <p style={{ marginTop: '20px', padding: '12px', borderRadius: '6px', backgroundColor: '#e8f5e9', color: '#2e7d32' }}>{notice}</p>}</section>
 }
 
 function AccountsView({ accounts, showAccountForm, setShowAccountForm, accountForm, setAccountForm, createAccount, createdCustomerLink, accountFormError, setAccountFormError, otpCodes, issueOtp, verifyOtp, updateAccount, deleteAccount }) {
@@ -435,31 +389,13 @@ function CustomerLogin({ account, onLogin, issueOtp, verifyOtp }) {
 function CustomerChat() {
   const [authenticated, setAuthenticated] = useState(() => sessionStorage.getItem('bluecrest-customer-auth') === 'active')
   const [open, setOpen] = useState(false)
-  const [message, setMessage] = useState('')
-  const [sent, setSent] = useState([])
-  const [error, setError] = useState('')
-  useEffect(() => {
-    if (authenticated) apiRequest('/customer-chat/messages').then(setSent).catch(() => {})
-  }, [authenticated])
-  const send = async (event) => {
-    event.preventDefault()
-    if (!message.trim()) return
-    try {
-      const record = await apiRequest('/customer-chat/messages', { method: 'POST', body: JSON.stringify({ message: message.trim() }) })
-      setSent([...sent, record])
-      setMessage('')
-      setError('')
-    } catch (requestError) {
-      setError(requestError.message)
-    }
-  }
   useEffect(() => {
     const handleAuthentication = () => setAuthenticated(true)
     window.addEventListener('bluecrest-customer-authenticated', handleAuthentication)
     return () => window.removeEventListener('bluecrest-customer-authenticated', handleAuthentication)
   }, [])
   if (!authenticated) return null
-  return <>{open && <div className="chat-window customer-chat"><div className="chat-header"><div><strong>Bluecrest support</strong><span>Secure customer support</span></div><button onClick={() => setOpen(false)}>✕</button></div><div className="chat-messages">{sent.map((msg) => <div key={msg.id} className="chat-message"><p>{msg.message}</p><small>{new Date(msg.createdAt).toLocaleTimeString()}</small></div>)}</div><form onSubmit={send} className="chat-input"><input type="text" placeholder="Type a message..." value={message} onChange={(e) => setMessage(e.target.value)} /><button type="submit">Send</button></form>{error && <p className="chat-error">{error}</p>}</div>}<button className="chat-button" onClick={() => setOpen(!open)}>💬 Chat</button></>
+  return <button className="chat-button" onClick={() => setOpen(!open)}>💬 Chat</button>
 }
 
 function CustomerPortal({ account, transactions, onTransfer, issueOtp, verifyOtp }) {
@@ -497,7 +433,7 @@ function PaymentsView({ transactionForm, setTransactionForm, addTransaction, tra
     setTransactions(transactions.map((transaction) => transaction.id === editingId ? { ...transaction, name: draft.name, date: correctedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) } : transaction))
     setEditingId(null)
   }
-  return <section className="management-view"><div className="section-heading"><div><p className="eyebrow">ACCOUNT ACTIVITY</p><h2>Add or correct transaction</h2></div></div><form className="form-panel" onSubmit={addTransaction}><div><label>Merchant / Recipient</label><input type="text" value={transactionForm.name} onChange={(e) => setTransactionForm({ ...transactionForm, name: e.target.value })} required /></div><div><label>Amount</label><input type="number" step="0.01" value={transactionForm.amount} onChange={(e) => setTransactionForm({ ...transactionForm, amount: e.target.value })} required /></div><div><label>Date</label><input type="date" value={transactionForm.date} onChange={(e) => setTransactionForm({ ...transactionForm, date: e.target.value })} required /></div><div><label>Type</label><select value={transactionForm.direction} onChange={(e) => setTransactionForm({ ...transactionForm, direction: e.target.value })}><option value="debit">Debit (withdrawal)</option><option value="credit">Credit (deposit)</option></select></div><div><label>Category</label><select value={transactionForm.type} onChange={(e) => setTransactionForm({ ...transactionForm, type: e.target.value })}><option>Transfer</option><option>Payment</option><option>Deposit</option><option>Withdrawal</option></select></div><button type="submit" className="primary-button">Add Transaction</button></form><div className="transactions-list" style={{ marginTop: '40px' }}><h3>All Transactions</h3><div>{transactions.map((tx) => <div key={tx.id} className="transaction-item"><div><strong>{tx.name}</strong><small>{tx.date}</small></div><div style={{ textAlign: 'right', color: tx.amount.startsWith('+') ? '#4caf50' : '#f44336' }}><strong>{tx.amount}</strong><small>{tx.type}</small></div></div>)}</div></section>
+  return <section className="management-view"><div className="section-heading"><div><p className="eyebrow">ACCOUNT ACTIVITY</p><h2>Add or correct transaction</h2></div></div><form className="form-panel" onSubmit={addTransaction}><div><label>Merchant / Recipient</label><input type="text" value={transactionForm.name} onChange={(e) => setTransactionForm({ ...transactionForm, name: e.target.value })} required /></div><div><label>Amount</label><input type="number" step="0.01" value={transactionForm.amount} onChange={(e) => setTransactionForm({ ...transactionForm, amount: e.target.value })} required /></div><div><label>Date</label><input type="date" value={transactionForm.date} onChange={(e) => setTransactionForm({ ...transactionForm, date: e.target.value })} required /></div><div><label>Type</label><select value={transactionForm.direction} onChange={(e) => setTransactionForm({ ...transactionForm, direction: e.target.value })}><option value="debit">Debit (withdrawal)</option><option value="credit">Credit (deposit)</option></select></div><div><label>Category</label><select value={transactionForm.type} onChange={(e) => setTransactionForm({ ...transactionForm, type: e.target.value })}><option>Transfer</option><option>Payment</option><option>Deposit</option><option>Withdrawal</option></select></div><button type="submit" className="primary-button">Add Transaction</button></form><div className="transactions-list" style={{ marginTop: '40px' }}><h3>All Transactions</h3><div>{transactions.map((tx) => <div key={tx.id} className="transaction-item"><div><strong>{tx.name}</strong><small>{tx.date}</small></div><div style={{ textAlign: 'right', color: tx.amount.startsWith('+') ? '#4caf50' : '#f44336' }}><strong>{tx.amount}</strong><small>{tx.type}</small></div></div>)}</div></div></section>
 }
 
 function Webmail() {

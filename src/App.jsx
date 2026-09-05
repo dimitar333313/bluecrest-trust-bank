@@ -220,9 +220,8 @@ function App() {
           {active === 'Accounts' ? <AccountsView accounts={accounts} showAccountForm={showAccountForm} setShowAccountForm={setShowAccountForm} accountForm={accountForm} setAccountForm={setAccountForm} createAccount={createAccount} createdCustomerLink={createdCustomerLink} accountFormError={accountFormError} setAccountFormError={setAccountFormError} otpCodes={otpCodes} issueOtp={issueOtp} verifyOtp={verifyOtp} updateAccount={updateAccount} deleteAccount={deleteAccount} /> : active === 'Payments' ? <PaymentsView transactionForm={transactionForm} setTransactionForm={setTransactionForm} addTransaction={addTransaction} transactions={transactions} setTransactions={setTransactions} /> : active === 'Settings' ? <AdminSettings adminPassword={adminPassword} setAdminPassword={setAdminPassword} setAuditLogs={setAuditLogs} auditLogs={auditLogs} /> : <>
             <section className="admin-overview"><div className="admin-overview-heading"><p className="eyebrow">PRIVATE WORKSPACE</p><h2>Admin dashboard</h2><p>Monitor access, transactions, support, and security from your control center.</p></div><div className="overview-grid"><div className="stat-card"><p>Total Assets</p><h3>${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h3><small>All customer accounts</small></div><div className="stat-card"><p>Active Customers</p><h3>{accounts.length}</h3><small>Verified identities</small></div><div className="stat-card"><p>Transactions</p><h3>{transactions.length}</h3><small>This quarter</small></div><div className="stat-card"><p>Audit Logs</p><h3>{auditLogs.length}</h3><small>System events</small></div></div></section>
           </>}
-          </>}
+        </>}
       </main>
-
     </div>
   )
 }
@@ -231,7 +230,13 @@ function PublicSite({ accounts, setAccounts, initialMode }) {
   const [mode, setMode] = useState(initialMode)
   const [form, setForm] = useState({ name: '', email: '', username: '', password: '' })
   const [notice, setNotice] = useState('')
-  const navigate = (nextMode) => { setNotice(''); setMode(nextMode); window.history.pushState({}, '', nextMode === 'home' ? '/' : `/${nextMode}`) }
+  
+  const navigate = (nextMode) => { 
+    setNotice('') 
+    setMode(nextMode) 
+    window.history.pushState({}, '', nextMode === 'home' ? '/' : `/${nextMode}`) 
+  }
+  
   const submitRegistration = async (event) => {
     event.preventDefault()
     try {
@@ -245,6 +250,7 @@ function PublicSite({ accounts, setAccounts, initialMode }) {
       setNotice(error.message)
     }
   }
+  
   const submitLogin = async (event) => {
     event.preventDefault()
     try {
@@ -255,8 +261,99 @@ function PublicSite({ accounts, setAccounts, initialMode }) {
       setNotice(error.message)
     }
   }
-  if (mode === 'login' || mode === 'register') return <main className="public-auth"><div className="public-auth-card"><div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div><p className="eyebrow">{mode === 'login' ? 'CUSTOMER LOGIN' : 'CREATE ACCOUNT'}</p><h1>{mode === 'login' ? 'Welcome back' : 'Join Bluecrest'}</h1><form onSubmit={mode === 'login' ? submitLogin : submitRegistration}>{mode === 'register' && <input type="text" placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />}<input type="email" placeholder="Email address" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /><input type="text" placeholder="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required /><input type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /><button type="submit" className="primary-button">{mode === 'login' ? 'Sign in' : 'Create account'}</button></form>{notice && <p className="notice">{notice}</p>}<p>{mode === 'login' ? "Don't have an account? " : 'Already have an account? '}<button onClick={() => navigate(mode === 'login' ? 'register' : 'login')} style={{ background: 'none', border: 'none', color: '#1558bb', cursor: 'pointer', fontWeight: '600', textDecoration: 'underline' }}>{mode === 'login' ? 'Sign up' : 'Sign in'}</button></p></div></main>
-  return <div className="public-site"><header className="public-header"><div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div><nav><button onClick={() => navigate('login')}>Login</button><button onClick={() => navigate('register')}>Open Account</button></nav></header><section className="public-hero"><div className="public-hero-content"><h1>Banking Reimagined for Your Success</h1><p>Experience secure, fast, and easy banking with Bluecrest Trust Bank. Manage your finances, make transfers, and grow your wealth with industry-leading security.</p><div className="public-hero-buttons"><button className="primary-button" onClick={() => navigate('register')}>Open Account Now</button><button className="secondary-button" onClick={() => navigate('login')}>Sign In</button></div></div><div className="public-hero-graphic"><div className="graphic-container"><svg viewBox="0 0 400 400" style={{ width: '100%', height: '100%' }}><defs><linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style={{ stopColor: '#1558bb', stopOpacity: 1 }} /><stop offset="100%" style={{ stopColor: '#0a8f5f', stopOpacity: 1 }} /></linearGradient></defs><rect x="80" y="100" width="240" height="140" rx="12" fill="url(#cardGrad)" opacity="0.9" /><circle cx="120" cy="140" r="8" fill="white" /><circle cx="120" cy="155" r="8" fill="white" /><circle cx="120" cy="170" r="8" fill="white" /><text x="150" y="155" fontSize="20" fontWeight="bold" fill="white">BLUECREST</text><text x="150" y="180" fontSize="12" fill="white" opacity="0.8">****  ****  ****  4288</text><path d="M 80 280 Q 120 250, 200 270 T 320 280" stroke="#1558bb" strokeWidth="3" fill="none" opacity="0.3" /><circle cx="200" cy="320" r="30" fill="#0a8f5f" opacity="0.2" /><circle cx="200" cy="320" r="20" fill="none" stroke="#0a8f5f" strokeWidth="2" /></svg></div></div></section><section className="features-section"><div className="section-title"><h2>Why Choose Bluecrest?</h2><p>Trusted by thousands of customers worldwide for secure and convenient banking</p></div><div className="features-grid"><div className="feature-card"><div className="feature-icon">🔒</div><h3>Bank-Grade Security</h3><p>Military-grade encryption and multi-factor authentication protect your account 24/7.</p></div><div className="feature-card"><div className="feature-icon">⚡</div><h3>Lightning Fast</h3><p>Transfer money instantly with our optimized payment system. No delays, just results.</p></div><div className="feature-card"><div className="feature-icon">📱</div><h3>Mobile First</h3><p>Manage your finances on the go with our responsive, intuitive mobile experience.</p></div><div className="feature-card"><div className="feature-icon">👥</div><h3>24/7 Support</h3><p>Our dedicated support team is always ready to help with any questions or concerns.</p></div><div className="feature-card"><div className="feature-icon">💰</div><h3>Competitive Rates</h3><p>Enjoy industry-leading interest rates on savings and low-cost loan options.</p></div><div className="feature-card"><div className="feature-icon">🎯</div><h3>Financial Goals</h3><p>Smart tools to help you save, invest, and achieve your financial dreams.</p></div></div></section><section className="cta-section"><h2>Ready to Get Started?</h2><p>Join thousands of customers enjoying safe, fast, and easy banking with Bluecrest Trust Bank.</p><button className="cta-button" onClick={() => navigate('register')}>Open Your Account Today</button></section><footer className="public-footer"><div className="footer-content"><div className="footer-section"><h4>About</h4><ul><li><a href="#about">About Bluecrest</a></li><li><a href="#careers">Careers</a></li><li><a href="#press">Press</a></li><li><a href="#blog">Blog</a></li></ul></div><div className="footer-section"><h4>Products</h4><ul><li><a href="#checking">Checking Accounts</a></li><li><a href="#savings">Savings Accounts</a></li><li><a href="#loans">Loans</a></li><li><a href="#investments">Investments</a></li></ul></div><div className="footer-section"><h4>Support</h4><ul><li><a href="#help">Help Center</a></li><li><a href="#contact">Contact Us</a></li><li><a href="#faq">FAQ</a></li><li><a href="#security">Security</a></li></ul></div><div className="footer-section"><h4>Legal</h4><ul><li><a href="#privacy">Privacy Policy</a></li><li><a href="#terms">Terms of Service</a></li><li><a href="#compliance">Compliance</a></li><li><a href="#cookies">Cookie Policy</a></li></ul></div></div><div className="footer-bottom"><p>&copy; 2026 Bluecrest Trust Bank. All rights reserved. Banking services provided securely.</p></div></footer></div>
+  
+  if (mode === 'login' || mode === 'register') {
+    return (
+      <main className="public-auth">
+        <div className="public-auth-card">
+          <div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div>
+          <p className="eyebrow">{mode === 'login' ? 'CUSTOMER LOGIN' : 'CREATE ACCOUNT'}</p>
+          <h1>{mode === 'login' ? 'Welcome back' : 'Join Bluecrest'}</h1>
+          <form onSubmit={mode === 'login' ? submitLogin : submitRegistration}>
+            {mode === 'register' && <input type="text" placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />}
+            <input type="email" placeholder="Email address" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+            <input type="text" placeholder="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required />
+            <input type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+            <button type="submit" className="primary-button">{mode === 'login' ? 'Sign in' : 'Create account'}</button>
+          </form>
+          {notice && <p className="notice">{notice}</p>}
+          <p>{mode === 'login' ? "Don't have an account? " : 'Already have an account? '}<button onClick={() => navigate(mode === 'login' ? 'register' : 'login')} style={{ background: 'none', border: 'none', color: '#1558bb', cursor: 'pointer', fontWeight: '600', textDecoration: 'underline' }}>{mode === 'login' ? 'Sign up' : 'Sign in'}</button></p>
+        </div>
+      </main>
+    )
+  }
+  
+  return (
+    <div className="public-site">
+      <header className="public-header">
+        <div className="brand"><span className="brand-mark">B</span><span>bluecrest <b>trust</b></span></div>
+        <nav><button onClick={() => navigate('login')}>Login</button><button onClick={() => navigate('register')}>Open Account</button></nav>
+      </header>
+      
+      <section className="public-hero">
+        <div className="public-hero-content">
+          <h1>Banking Reimagined for Your Success</h1>
+          <p>Experience secure, fast, and easy banking with Bluecrest Trust Bank. Manage your finances, make transfers, and grow your wealth with industry-leading security.</p>
+          <div className="public-hero-buttons">
+            <button className="primary-button" onClick={() => navigate('register')}>Open Account Now</button>
+            <button className="secondary-button" onClick={() => navigate('login')}>Sign In</button>
+          </div>
+        </div>
+        <div className="public-hero-graphic">
+          <div className="graphic-container">
+            <svg viewBox="0 0 400 400" style={{ width: '100%', height: '100%' }}>
+              <defs>
+                <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style={{ stopColor: '#1558bb', stopOpacity: 1 }} />
+                  <stop offset="100%" style={{ stopColor: '#0a8f5f', stopOpacity: 1 }} />
+                </linearGradient>
+              </defs>
+              <rect x="80" y="100" width="240" height="140" rx="12" fill="url(#cardGrad)" opacity="0.9" />
+              <circle cx="120" cy="140" r="8" fill="white" />
+              <circle cx="120" cy="155" r="8" fill="white" />
+              <circle cx="120" cy="170" r="8" fill="white" />
+              <text x="150" y="155" fontSize="20" fontWeight="bold" fill="white">BLUECREST</text>
+              <text x="150" y="180" fontSize="12" fill="white" opacity="0.8">****  ****  ****  4288</text>
+              <path d="M 80 280 Q 120 250, 200 270 T 320 280" stroke="#1558bb" strokeWidth="3" fill="none" opacity="0.3" />
+              <circle cx="200" cy="320" r="30" fill="#0a8f5f" opacity="0.2" />
+              <circle cx="200" cy="320" r="20" fill="none" stroke="#0a8f5f" strokeWidth="2" />
+            </svg>
+          </div>
+        </div>
+      </section>
+      
+      <section className="features-section">
+        <div className="section-title">
+          <h2>Why Choose Bluecrest?</h2>
+          <p>Trusted by thousands of customers worldwide for secure and convenient banking</p>
+        </div>
+        <div className="features-grid">
+          <div className="feature-card"><div className="feature-icon">🔒</div><h3>Bank-Grade Security</h3><p>Military-grade encryption and multi-factor authentication protect your account 24/7.</p></div>
+          <div className="feature-card"><div className="feature-icon">⚡</div><h3>Lightning Fast</h3><p>Transfer money instantly with our optimized payment system. No delays, just results.</p></div>
+          <div className="feature-card"><div className="feature-icon">📱</div><h3>Mobile First</h3><p>Manage your finances on the go with our responsive, intuitive mobile experience.</p></div>
+          <div className="feature-card"><div className="feature-icon">👥</div><h3>24/7 Support</h3><p>Our dedicated support team is always ready to help with any questions or concerns.</p></div>
+          <div className="feature-card"><div className="feature-icon">💰</div><h3>Competitive Rates</h3><p>Enjoy industry-leading interest rates on savings and low-cost loan options.</p></div>
+          <div className="feature-card"><div className="feature-icon">🎯</div><h3>Financial Goals</h3><p>Smart tools to help you save, invest, and achieve your financial dreams.</p></div>
+        </div>
+      </section>
+      
+      <section className="cta-section">
+        <h2>Ready to Get Started?</h2>
+        <p>Join thousands of customers enjoying safe, fast, and easy banking with Bluecrest Trust Bank.</p>
+        <button className="cta-button" onClick={() => navigate('register')}>Open Your Account Today</button>
+      </section>
+      
+      <footer className="public-footer">
+        <div className="footer-content">
+          <div className="footer-section"><h4>About</h4><ul><li><a href="#about">About Bluecrest</a></li><li><a href="#careers">Careers</a></li><li><a href="#press">Press</a></li><li><a href="#blog">Blog</a></li></ul></div>
+          <div className="footer-section"><h4>Products</h4><ul><li><a href="#checking">Checking Accounts</a></li><li><a href="#savings">Savings Accounts</a></li><li><a href="#loans">Loans</a></li><li><a href="#investments">Investments</a></li></ul></div>
+          <div className="footer-section"><h4>Support</h4><ul><li><a href="#help">Help Center</a></li><li><a href="#contact">Contact Us</a></li><li><a href="#faq">FAQ</a></li><li><a href="#security">Security</a></li></ul></div>
+          <div className="footer-section"><h4>Legal</h4><ul><li><a href="#privacy">Privacy Policy</a></li><li><a href="#terms">Terms of Service</a></li><li><a href="#compliance">Compliance</a></li><li><a href="#cookies">Cookie Policy</a></li></ul></div>
+        </div>
+        <div className="footer-bottom"><p>&copy; 2026 Bluecrest Trust Bank. All rights reserved. Banking services provided securely.</p></div>
+      </footer>
+    </div>
+  )
 }
 
 function AdminLogin({ onLogin, adminPassword }) {
